@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "知乎 AI 学习模式",
+  "description": "将知乎标签页标题与页面大标题替换为 AI 学习类标题，浏览时界面看起来像在学习笔记。",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "知乎 AI 学习模式",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.zhihu.com/*"],
+      "js": ["src/content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "zhihu-ai-study-mode@z-zihan.dev",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  }
+}
