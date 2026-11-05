@@ -64,7 +64,6 @@
   const DEFAULT_ENABLED = true;
 
   /** 与 popup 通信的消息类型（FB = FakeBrowse，避免与其他扩展撞名）。 */
-  const MSG_SHUFFLE = 'FB_SHUFFLE';
   const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
   /** 当前站点配置；sites.js 未载入或站点不在配置表中时不做任何事。 */
@@ -198,7 +197,7 @@
     if (!title) return;
 
     if (document.title !== title) {
-      // 换一个时旧值是池内标题，不能当作站点原文保存
+      // SPA 切页重选时旧值是池内标题，不能当作站点原文保存
       if (!isPoolTitle(document.title)) state.originalTitle = document.title;
       document.title = title;
     }
@@ -396,19 +395,14 @@
   }
 
   /**
-   * 监听 popup 消息：换一个 / 查询当前标题。均同步 sendResponse。
+   * 监听 popup 消息：查询当前标题。同步 sendResponse。
    */
   function listenMessages() {
     const runtime = chromeApi('runtime');
     if (!runtime || !runtime.onMessage || typeof runtime.onMessage.addListener !== 'function') return;
     runtime.onMessage.addListener(function (message, _sender, sendResponse) {
       if (!message || typeof message.type !== 'string') return false;
-      if (message.type === MSG_SHUFFLE) {
-        pickNewTitle();
-        apply();
-      } else if (message.type !== MSG_GET_CURRENT) {
-        return false;
-      }
+      if (message.type !== MSG_GET_CURRENT) return false;
       sendResponse({
         ok: true,
         title: desiredTitle(),

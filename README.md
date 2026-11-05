@@ -17,14 +17,14 @@
   - `h1.Post-Title`（专栏文章页）
   - `.PinHeader-title`（想法页，若存在）
 - 适配 SPA：history 钩子 + `MutationObserver` + 800ms 定时兜底，站点把标题写回后会被立即纠正
-- 弹窗：显示当前站点名（不支持的页面显示「当前页面不支持」）、一键开关（记忆状态）、「换一个标题」、查看当前标题与标题池条数
+- 弹窗：显示当前站点名（不支持的页面显示「当前页面不支持」）、一键开关（记忆状态）、查看当前标题与标题池条数；无需任何手动操作
 - 关闭开关时尽量还原站点原始标题
 
 ### 随机标题的行为
 
 - **每打开一个新页面随机选一条**：新页面加载、SPA 切页（路径变化）都会从标题池重新随机选取
 - **同一页面内保持稳定**：不会定时轮换，也不会闪烁；站点改写标题时只会被纠正回同一条
-- 想换的时候点弹窗里的「换一个标题」手动换
+- 完全自动、无需手动触发：想看新标题，打开新页面即可
 
 ## 它不做什么
 
@@ -140,9 +140,9 @@ test/                  仿知乎测试页与 jsdom 测试
 **Study Mode** is a cross-browser MV3 extension that replaces the tab title and the on-page headline with study-style titles (e.g. "Machine learning fundamentals"). Sites are configured in `src/sites.js`; **currently supported: Zhihu**.
 
 - Pure DOM display-layer replacement — no network requests are touched, no data collected.
-- A random title is picked for every new page / SPA navigation and stays stable on that page (no timed rotation). Use the popup's "shuffle" button to change it manually.
+- A random title is picked for every new page / SPA navigation and stays stable on that page (no timed rotation). Fully automatic — no manual interaction needed.
 - Handles SPAs via history hooks, `MutationObserver`, and an 800 ms fallback check.
-- Popup: current site name ("not supported" elsewhere), on/off toggle (persisted), shuffle button, current title display.
+- Popup: current site name ("not supported" elsewhere), on/off toggle (persisted), current title display.
 - Install (zip): open the [latest release](https://github.com/z-Zihan/study-mode/releases/tag/latest) → download the zip → unzip → `chrome://extensions` → Developer mode → Load unpacked → select the unzipped folder.
 - Install (dev): `git clone` → Load unpacked → select the repo root. Firefox → `about:debugging` → Load Temporary Add-on → pick `manifest.json`.
 - Add a site: add an entry to `SITES` in `src/sites.js` **and** its match pattern to `manifest.json`. Customize titles via `TITLE_POOLS` in `src/content.js`. Run tests with `npm install && npm test`.

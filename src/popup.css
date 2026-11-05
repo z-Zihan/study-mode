@@ -124,26 +124,6 @@ body {
   word-break: break-all;
 }
 
-.shuffle {
-  width: 100%;
-  padding: 8px 0;
-  border: none;
-  border-radius: 6px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.shuffle:hover:not(:disabled) {
-  background: var(--brand-dark);
-}
-
-.shuffle:disabled {
-  background: #c4c7cc;
-  cursor: not-allowed;
-}
-
 .footer {
   display: flex;
   justify-content: space-between;

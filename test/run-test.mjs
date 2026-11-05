@@ -235,19 +235,13 @@ test('测试6：storage.onChanged 实时开关，关闭时还原原文', withPag
   assert.ok(inPool(document.title));
 }));
 
-test('测试7：FB_SHUFFLE 换一条，FB_GET_CURRENT 返回当前标题', withPage({}, async ({ document, chrome }) => {
+test('测试7：FB_GET_CURRENT 返回当前标题', withPage({}, async ({ document, chrome }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   const before = document.title;
 
   const current = chrome._send({ type: 'FB_GET_CURRENT' });
   // 回包对象来自 jsdom 窗口的 realm，展开到本 realm 再比较结构
   assert.deepEqual({ ...current }, { ok: true, title: before, enabled: true, poolSize: TITLE_POOL.length });
-
-  const shuffled = chrome._send({ type: 'FB_SHUFFLE' });
-  assert.ok(inPool(shuffled.title));
-  assert.notEqual(shuffled.title, before);
-  assert.equal(document.title, shuffled.title);
-  headerTexts(document).forEach((t) => assert.equal(t, shuffled.title));
 
   // 未知消息不回包
   assert.equal(chrome._send({ type: 'OTHER' }), undefined);

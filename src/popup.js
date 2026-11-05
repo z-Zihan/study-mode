@@ -3,7 +3,6 @@
  *
  * - 站点：用 sites.js 的 findSite 匹配当前标签页 URL，显示站点名或「当前页面不支持」；
  * - 开关：读写 chrome.storage.local 的 enabled，内容脚本通过 onChanged 实时生效；
- * - 换一个：向当前激活标签页发送 FB_SHUFFLE；
  * - 展示：通过 FB_GET_CURRENT 获取当前标题与标题池条数。
  */
 (function () {
@@ -16,7 +15,6 @@
   const DEFAULT_ENABLED = true;
 
   /** 消息类型（与 content.js 保持一致）。 */
-  const MSG_SHUFFLE = 'FB_SHUFFLE';
   const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
   /** 当前页面不在站点配置表中时的提示。 */
@@ -26,7 +24,6 @@
   const HINT_RELOAD = '请刷新页面后再试';
 
   const toggle = /** @type {HTMLInputElement} */ (document.getElementById('enabled'));
-  const shuffleBtn = /** @type {HTMLButtonElement} */ (document.getElementById('shuffle'));
   const currentTitleEl = document.getElementById('current-title');
   const poolSizeEl = document.getElementById('pool-size');
   const hintEl = document.getElementById('hint');
@@ -51,14 +48,12 @@
     }
     currentTitleEl.textContent = response.title || '—';
     poolSizeEl.textContent = String(response.poolSize);
-    shuffleBtn.disabled = false;
     hintEl.textContent = '';
   }
 
-  /** 当前标签页无法通信：禁用按钮并提示。 */
+  /** 当前标签页无法通信：清空标题并提示。 */
   function markUnavailable() {
     currentTitleEl.textContent = '—';
-    shuffleBtn.disabled = true;
     hintEl.textContent = currentSite ? HINT_RELOAD : '';
   }
 
@@ -115,11 +110,6 @@
 
     toggle.addEventListener('change', function () {
       chrome.storage.local.set({ [STORAGE_KEY_ENABLED]: toggle.checked });
-    });
-
-    shuffleBtn.addEventListener('click', function () {
-      shuffleBtn.disabled = true;
-      sendToActiveTab(MSG_SHUFFLE, render);
     });
 
     sendToActiveTab(MSG_GET_CURRENT, render);
