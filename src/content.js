@@ -63,6 +63,27 @@
   /** 开关默认值：未设置时启用。 */
   const DEFAULT_ENABLED = true;
 
+  /**
+   * 原文匹配兜底：只检查这些标签的叶子元素。用于捕获 titleSelectors 没覆盖到的
+   * 标题副本（如知乎滚动后出现的吸顶 header 克隆）。
+   */
+  const TEXT_MATCH_SELECTOR = 'div,span,a,h1,h2,p';
+
+  /**
+   * 参与原文匹配的最短文本长度。首页等页面标题去掉后缀后只剩「首页」之类的
+   * 短词，与导航链接同名，过短的候选一律不匹配，避免误伤站点 UI。
+   */
+  const MIN_TEXT_MATCH_LENGTH = 5;
+
+  /** 标签页标题的站点后缀（匹配页面内副本时去掉）。 */
+  const TITLE_SUFFIX_RE = /\s*[-|–—]\s*知乎\s*$/;
+
+  /** 标签页标题的未读提示前缀，如「(3 封私信 / 12 条消息) 」。 */
+  const TITLE_PREFIX_RE = /^\(\s*[^()]*(?:私信|消息)[^()]*\)\s*/;
+
+  /** 自身注入节点的标记属性，原文匹配时跳过其子树。 */
+  const IGNORE_ATTR = 'data-fb-ignore';
+
   /** 与 popup 通信的消息类型（FB = FakeBrowse，避免与其他扩展撞名）。 */
   const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
@@ -97,6 +118,9 @@
 
   /** 记录被替换元素的原始文本，用于关闭开关时还原。 */
   const originalHeaderText = new WeakMap();
+
+  /** 经原文匹配替换过的元素（不在 HEADER_SELECTORS 中），关闭开关时据此还原。 */
+  const textMatchedEls = new Set();
 
   /** 标题元素观察器（在 init 中创建）。 @type {MutationObserver|null} */
   let titleObserver = null;
@@ -209,7 +233,59 @@
         el.textContent = title;
       }
     }
+    replaceTextMatches(title);
     ensureTitleObserved();
+  }
+
+  /**
+   * 原文匹配的候选文本：完整原标题，以及去掉站点后缀 / 未读前缀后的正文
+   * （页面内的标题副本通常不带「 - 知乎」）。过短的候选被丢弃。
+   * @returns {string[]}
+   */
+  function textMatchCandidates() {
+    const full = state.originalTitle.trim();
+    if (!full) return [];
+    const core = full.replace(TITLE_PREFIX_RE, '').replace(TITLE_SUFFIX_RE, '').trim();
+    const list = [full];
+    if (core && core !== full) list.push(core);
+    return list.filter(function (t) { return t.length >= MIN_TEXT_MATCH_LENGTH; });
+  }
+
+  /**
+   * 页面正文中是否还残留原标题文本。用 textContent 做字符串查找：
+   * 不像 innerText 那样触发重排，也没有 outerHTML 的实体转义（& < >）问题。
+   * @param {string[]} candidates
+   * @returns {boolean}
+   */
+  function bodyHasText(candidates) {
+    const body = document.body;
+    if (!body || candidates.length === 0) return false;
+    const text = body.textContent || '';
+    return candidates.some(function (t) { return text.indexOf(t) !== -1; });
+  }
+
+  /**
+   * 兜底：把 body 下文本恰好等于原标题的叶子元素替换为期望标题，
+   * 覆盖站点克隆 / 动态创建、类名不在 titleSelectors 中的标题副本。
+   * @param {string} title
+   */
+  function replaceTextMatches(title) {
+    // 已替换过的副本：脱离文档的丢弃；SPA 切页后仍显示旧池内标题的跟着换
+    for (const el of textMatchedEls) {
+      if (!el.isConnected) textMatchedEls.delete(el);
+      else if (el.textContent !== title && isPoolTitle(el.textContent)) el.textContent = title;
+    }
+    const candidates = textMatchCandidates();
+    if (!bodyHasText(candidates)) return;
+    for (const el of document.body.querySelectorAll(TEXT_MATCH_SELECTOR)) {
+      if (el.children.length !== 0) continue;
+      const text = el.textContent.trim();
+      if (candidates.indexOf(text) === -1) continue;
+      if (el.closest('[' + IGNORE_ATTR + ']')) continue;
+      originalHeaderText.set(el, el.textContent);
+      textMatchedEls.add(el);
+      el.textContent = title;
+    }
   }
 
   /**
@@ -226,6 +302,13 @@
         el.textContent = original;
       }
     }
+    for (const el of textMatchedEls) {
+      const original = originalHeaderText.get(el);
+      if (el.isConnected && original !== undefined && isPoolTitle(el.textContent)) {
+        el.textContent = original;
+      }
+    }
+    textMatchedEls.clear();
   }
 
   /**
@@ -238,7 +321,7 @@
     for (const el of document.querySelectorAll(HEADER_SELECTORS)) {
       if (el.textContent !== title) return true;
     }
-    return false;
+    return bodyHasText(textMatchCandidates());
   }
 
   /**

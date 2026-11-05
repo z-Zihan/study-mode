@@ -21,8 +21,18 @@ const SITES = Object.freeze({
   zhihu: Object.freeze({
     name: '知乎',
     match: Object.freeze(['https://*.zhihu.com/*']),
-    // 问题详情页（含吸顶标题）/ 专栏文章页 / 想法页
-    titleSelectors: Object.freeze(['h1.QuestionHeader-title', 'h1.Post-Title', '.PinHeader-title']),
+    // 问题详情页（含吸顶标题）/ 专栏文章页 / 想法页。
+    // 吸顶 header 里的克隆标题不一定是 h1，故同时列出容器级与已知吸顶类名；
+    // 仍漏掉的由 content.js 的原文匹配兜底。
+    titleSelectors: Object.freeze([
+      'h1.QuestionHeader-title',
+      '.QuestionHeader-title',
+      '.QuestionHeader-fixable .QuestionHeader-title',
+      '.AppHeader-inner .QuestionHeader-title',
+      'h1.Post-Title',
+      '.ColumnPageHeader-title',
+      '.PinHeader-title'
+    ]),
     poolKey: 'ai-study'
   })
   // 以后加豆瓣 / B 站只改这里（并同步 manifest）

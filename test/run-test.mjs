@@ -293,3 +293,45 @@ test('测试11：不在配置表中的站点不做任何替换', withPage({ url:
   assert.equal(document.title, ORIGINAL_TITLE);
   headerTexts(document).forEach((t) => assert.equal(t, ORIGINAL_H1));
 }));
+
+test('测试12：吸顶 header 克隆（类名不在 titleSelectors 中）按原文匹配被替换', withPage({}, async ({ document }) => {
+  await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
+  const desired = document.title;
+
+  // 模拟滚动后站点动态插入的吸顶标题：div.StickyHeader > span.title-clone，文本不带「 - 知乎」
+  const sticky = document.createElement('div');
+  sticky.className = 'StickyHeader';
+  const clone = document.createElement('span');
+  clone.className = 'title-clone';
+  clone.textContent = ORIGINAL_H1;
+  sticky.appendChild(clone);
+  document.body.appendChild(sticky);
+
+  await waitFor(() => clone.textContent === desired, CHECK_INTERVAL_MS);
+
+  // 站点再次把原文写回，仍被纠正
+  clone.textContent = ORIGINAL_H1;
+  await waitFor(() => clone.textContent === desired, CHECK_INTERVAL_MS);
+}));
+
+test('测试12b：原文匹配不误伤其他文本 / 自身忽略节点，关闭开关时还原', withPage({}, async ({ document, chrome }) => {
+  await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
+  const desired = document.title;
+
+  const clone = document.createElement('span');
+  clone.textContent = ORIGINAL_H1;
+  const ignored = document.createElement('div');
+  ignored.setAttribute('data-fb-ignore', '');
+  ignored.innerHTML = `<span>${ORIGINAL_H1}</span>`;
+  const partial = document.createElement('p');
+  partial.textContent = `${ORIGINAL_H1} 的回答`;
+  document.body.append(clone, ignored, partial);
+
+  await waitFor(() => clone.textContent === desired, CHECK_INTERVAL_MS);
+  assert.equal(ignored.firstChild.textContent, ORIGINAL_H1, 'data-fb-ignore 子树不应被替换');
+  assert.equal(partial.textContent, `${ORIGINAL_H1} 的回答`, '仅部分包含原文的元素不应被替换');
+  assert.equal(document.querySelector('.AppHeader-logo').textContent, '知乎');
+
+  chrome.storage.local.set({ enabled: false });
+  assert.equal(clone.textContent, ORIGINAL_H1, '关闭后克隆标题应还原');
+}));
