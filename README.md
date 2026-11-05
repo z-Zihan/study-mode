@@ -46,7 +46,7 @@
 
 **第 5 步：加载扩展**
 
-1. 点击左上方的 **加载已解压的扩展程序** 按钮。
+1. 点击左上方的 **加载未打包的扩展程序** 按钮（旧版 Chrome 写作「加载已解压的扩展程序」，同一个按钮，不同版本翻译不同）。
 2. 在弹出的选择窗口中，找到第 2 步解压出来的文件夹，选中**里面直接有 `manifest.json` 的那个文件夹**，然后点 **选择**（Windows 为 **选择文件夹**）。
    - ⚠️ 不要选 zip 文件本身，必须先解压。
    - ⚠️ 如果点进文件夹后发现里面还套着一层同名文件夹，要选**里面那层**（能直接看到 `manifest.json` 的那层）。
@@ -143,7 +143,7 @@ A：Firefox 可以临时载入使用（见上方「Firefox 用户」，关闭浏
 git clone https://github.com/z-Zihan/study-mode.git
 ```
 
-然后在 `chrome://extensions` →「开发者模式」→「加载已解压的扩展程序」，选择**仓库根目录**。Firefox 在 `about:debugging#/runtime/this-firefox` →「临时载入附加组件」选择 `manifest.json`。
+然后在 `chrome://extensions` →「开发者模式」→「加载未打包的扩展程序」（旧版叫「加载已解压的扩展程序」），选择**仓库根目录**。Firefox 在 `about:debugging#/runtime/this-firefox` →「临时载入附加组件」选择 `manifest.json`。
 
 > Chrome 可能提示 `browser_specific_settings`（Firefox 兼容字段）与 `//content_scripts`（manifest 内的说明字段）为未知字段，可忽略。
 
@@ -228,7 +228,7 @@ test/                  仿知乎测试页与 jsdom 测试
 - A random title is picked for every new page / SPA navigation and stays stable on that page (no timed rotation). Fully automatic — no manual interaction needed.
 - Handles SPAs via history hooks, `MutationObserver`, and an 800 ms fallback check.
 - Popup: current site name ("not supported" elsewhere), on/off toggle (persisted), current title display.
-- Install (zip): open the [latest release](https://github.com/z-Zihan/study-mode/releases/tag/latest) → download `study-mode-v*.zip` from Assets → unzip → `chrome://extensions` → Developer mode → Load unpacked → select the unzipped folder (the one containing `manifest.json`).
+- Install (zip): open the [latest release](https://github.com/z-Zihan/study-mode/releases/tag/latest) → download `study-mode-v*.zip` from Assets → unzip → `chrome://extensions` → Developer mode → Load unpacked ("Load unpacked" in older versions) → select the unzipped folder (the one containing `manifest.json`).
 - Install (dev): `git clone` → Load unpacked → select the repo root. Firefox → `about:debugging` → Load Temporary Add-on → pick `manifest.json`.
 - Add a site: add an entry to `SITES` in `src/sites.js` **and** its match pattern to `manifest.json`. Customize titles via `TITLE_POOLS` in `src/content.js`. Run tests with `npm install && npm test`.
 - For personal study/focus use only; please respect each site's Terms of Service.
