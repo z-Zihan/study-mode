@@ -1,6 +1,7 @@
 /**
- * 知乎 AI 学习模式 —— 弹窗脚本
+ * 学习模式 Study Mode —— 弹窗脚本
  *
+ * - 站点：用 sites.js 的 findSite 匹配当前标签页 URL，显示站点名或「当前页面不支持」；
  * - 开关：读写 chrome.storage.local 的 enabled，内容脚本通过 onChanged 实时生效；
  * - 换一个：向当前激活标签页发送 FB_SHUFFLE；
  * - 展示：通过 FB_GET_CURRENT 获取当前标题与标题池条数。
@@ -18,14 +19,21 @@
   const MSG_SHUFFLE = 'FB_SHUFFLE';
   const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
-  /** 当前标签页不在知乎（或内容脚本未注入）时的提示。 */
-  const HINT_NOT_ZHIHU = '请在知乎页面使用';
+  /** 当前页面不在站点配置表中时的提示。 */
+  const TEXT_UNSUPPORTED = '当前页面不支持';
+
+  /** 站点受支持但内容脚本未响应（如安装扩展前就已打开的标签页）时的提示。 */
+  const HINT_RELOAD = '请刷新页面后再试';
 
   const toggle = /** @type {HTMLInputElement} */ (document.getElementById('enabled'));
   const shuffleBtn = /** @type {HTMLButtonElement} */ (document.getElementById('shuffle'));
   const currentTitleEl = document.getElementById('current-title');
   const poolSizeEl = document.getElementById('pool-size');
   const hintEl = document.getElementById('hint');
+  const siteEl = document.getElementById('site');
+
+  /** 当前标签页对应的站点配置；未知或不支持时为 null。 */
+  let currentSite = null;
 
   /** @returns {boolean} 扩展 API 是否可用 */
   function hasChrome() {
@@ -51,18 +59,30 @@
   function markUnavailable() {
     currentTitleEl.textContent = '—';
     shuffleBtn.disabled = true;
-    hintEl.textContent = HINT_NOT_ZHIHU;
+    hintEl.textContent = currentSite ? HINT_RELOAD : '';
   }
 
   /**
-   * 向当前激活标签页发送消息。失败（不在知乎 / 未注入）时回调 undefined。
+   * 显示当前站点名；不支持的页面显示「当前页面不支持」。
+   * @param {{name: string}|null} site
+   */
+  function renderSite(site) {
+    currentSite = site;
+    siteEl.textContent = site ? site.name : TEXT_UNSUPPORTED;
+    siteEl.classList.toggle('unsupported', !site);
+  }
+
+  /**
+   * 向当前激活标签页发送消息。失败（不支持的站点 / 未注入）时回调 undefined。
+   * 每次调用时顺便根据标签页 URL 刷新站点显示（URL 来自 manifest 匹配站点的 host 权限）。
    * @param {string} type
    * @param {function(any): void} done
    */
   function sendToActiveTab(type, done) {
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
       const tab = tabs && tabs[0];
-      if (!tab || typeof tab.id !== 'number') {
+      renderSite(tab && tab.url && typeof findSite === 'function' ? findSite(tab.url) : null);
+      if (!tab || typeof tab.id !== 'number' || !currentSite) {
         done(undefined);
         return;
       }
@@ -83,6 +103,7 @@
 
   function init() {
     if (!hasChrome()) {
+      renderSite(null);
       markUnavailable();
       return;
     }

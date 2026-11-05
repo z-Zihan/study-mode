@@ -1,10 +1,10 @@
 {
-  "name": "zhihu-ai-study-mode",
-  "version": "1.0.0",
-  "description": "知乎 AI 学习模式：把标签页标题与页面大标题替换为 AI 学习类标题的浏览器扩展",
+  "name": "study-mode",
+  "version": "1.1.0",
+  "description": "学习模式 Study Mode：把标签页标题与页面大标题替换为学习类标题的浏览器扩展（多站点）",
   "private": true,
   "scripts": {
-    "test": "node --check src/content.js && node --check src/popup.js && node --test test/run-test.mjs",
+    "test": "node --check src/sites.js && node --check src/content.js && node --check src/popup.js && node --test test/run-test.mjs",
     "icons": "python3 scripts/gen-icons.py"
   },
   "author": "z-Zihan",

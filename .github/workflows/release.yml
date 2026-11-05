@@ -1,0 +1,84 @@
+# 自动打包发布
+#
+# - push 到 main：重建 `latest` 预发布（prerelease），随时可下载最新构建；
+# - push `v*` tag：以 tag 名创建正式 Release，并自动生成 changelog。
+#
+# 产物：study-mode-v{version}.zip（version 读自 manifest.json），
+# 解压后即可在 chrome://extensions「加载已解压的扩展程序」中选择该目录。
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+# 同一 ref 的发布串行执行，避免两次 push 同时删建 latest
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 生成 changelog 需要完整 tag 历史
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24  # jsdom 30 要求 ^22.22 || ^24.15 || >=26
+          cache: npm
+
+      - name: Test
+        run: |
+          npm ci
+          npm test
+
+      - name: Read version
+        id: meta
+        run: |
+          VERSION="$(jq -r .version manifest.json)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip=study-mode-v$VERSION.zip" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF_TYPE" == "tag" && "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+            echo "::warning::tag $GITHUB_REF_NAME 与 manifest.json 版本 v$VERSION 不一致"
+          fi
+
+      - name: Package zip
+        run: |
+          mkdir -p dist
+          zip -r "dist/${{ steps.meta.outputs.zip }}" . \
+            -x '.git/*' 'node_modules/*' 'test/*' 'scripts/*' '.github/*' 'dist/*'
+          unzip -l "dist/${{ steps.meta.outputs.zip }}"
+
+      - name: Publish latest (main)
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # 先删旧的 latest release 与 tag（不存在时忽略），再在当前 commit 上重建
+          gh release delete latest --yes --cleanup-tag || true
+          git push origin :refs/tags/latest || true
+          gh release create latest "dist/${{ steps.meta.outputs.zip }}" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Latest build (auto-updated)" \
+            --notes "main 分支最新构建（commit ${GITHUB_SHA::7}），每次 push 自动更新。下载 zip → 解压 → chrome://extensions 加载已解压的扩展程序。"
+
+      - name: Publish release (tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # changelog 从上一个 v* tag 算起，避免把 latest 预发布当作起点
+          PREV="$(git tag --list 'v*' --sort=-v:refname | grep -A1 -x "$GITHUB_REF_NAME" | sed -n 2p || true)"
+          gh release create "$GITHUB_REF_NAME" "dist/${{ steps.meta.outputs.zip }}" \
+            --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            ${PREV:+--notes-start-tag "$PREV"}

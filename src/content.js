@@ -1,10 +1,12 @@
 /**
- * 知乎 AI 学习模式 —— 内容脚本
+ * 学习模式 Study Mode —— 内容脚本（通用引擎）
  *
  * 把标签页标题（document.title）与页面内的大标题元素替换为同一条
- * 「AI 学习」类标题。纯 DOM 展示层替换，不触碰任何网络请求。
+ * 学习类标题。纯 DOM 展示层替换，不触碰任何网络请求。
  *
  * 设计要点：
+ * - 站点差异全部来自 sites.js（manifest 中先于本文件注入）：按当前 URL 查找
+ *   站点配置，取其标题选择器与标题池；没有配置的站点不做任何事。
  * - 零依赖、IIFE + 严格模式；chrome.* 不存在时安静降级（便于 jsdom 测试）。
  * - 每次导航（以 origin + pathname 区分）随机选一条，同一导航内保持稳定。
  * - 站点 SPA 会把标题写回：用 history 钩子 + MutationObserver + 定时兜底三层防御。
@@ -13,41 +15,44 @@
   'use strict';
 
   /**
-   * 标题池：可自行增删，每条为一个完整的标签页 / 页面标题。
-   * @type {ReadonlyArray<string>}
+   * 标题池：键为 sites.js 中的 poolKey，每条为一个完整的标签页 / 页面标题。
+   * 可自行增删条目，或新增一个池供其他站点使用。
+   * @type {Readonly<Record<string, ReadonlyArray<string>>>}
    */
-  const TITLE_POOL = Object.freeze([
-    'AI 学习笔记（一）：从零理解机器学习的基本概念',
-    '机器学习入门：线性回归与梯度下降推导',
-    '机器学习基础知识点梳理：偏差、方差与过拟合',
-    '逻辑回归与交叉熵损失：一篇讲清楚',
-    '决策树、随机森林与 XGBoost 对比总结',
-    '深度学习入门：反向传播算法逐步推导',
-    '卷积神经网络 CNN 原理与经典结构复盘',
-    '循环神经网络 RNN 与 LSTM 学习笔记',
-    'Transformer 架构精读：Self-Attention 到底在算什么',
-    '位置编码详解：从绝对位置到 RoPE',
-    '大模型（LLM）基础：预训练、微调与对齐流程梳理',
-    'LLM 推理优化笔记：KV Cache 与量化入门',
-    'LoRA 微调实践：参数高效微调原理与踩坑记录',
-    '提示词工程（Prompt Engineering）实用技巧整理',
-    'Chain-of-Thought 思维链提示的原理与实践',
-    'RAG 检索增强生成：从向量检索到完整链路搭建',
-    'Embedding 与向量数据库选型学习笔记',
-    'NLP 基础：分词、词向量与语言模型发展脉络',
-    'BERT 与 GPT 的区别：预训练目标对比分析',
-    '计算机视觉入门：图像分类到目标检测的演进',
-    'Vision Transformer（ViT）论文阅读笔记',
-    '扩散模型（Diffusion）原理入门与公式推导',
-    '强化学习基础：马尔可夫决策过程与 Q-Learning',
-    'RLHF 学习笔记：奖励模型与 PPO 训练流程',
-    'Python 机器学习实战：用 scikit-learn 完成第一个项目',
-    'PyTorch 实战：从 Tensor 到训练一个完整模型',
-    'AI 工具提效：用大模型辅助阅读论文与写代码',
-    '2026 AI 学习路线：数学基础、框架与项目规划',
-    '论文阅读方法：如何高效精读一篇顶会论文',
-    '算法打卡第 30 天：动态规划经典题型总结'
-  ]);
+  const TITLE_POOLS = Object.freeze({
+    'ai-study': Object.freeze([
+      'AI 学习笔记（一）：从零理解机器学习的基本概念',
+      '机器学习入门：线性回归与梯度下降推导',
+      '机器学习基础知识点梳理：偏差、方差与过拟合',
+      '逻辑回归与交叉熵损失：一篇讲清楚',
+      '决策树、随机森林与 XGBoost 对比总结',
+      '深度学习入门：反向传播算法逐步推导',
+      '卷积神经网络 CNN 原理与经典结构复盘',
+      '循环神经网络 RNN 与 LSTM 学习笔记',
+      'Transformer 架构精读：Self-Attention 到底在算什么',
+      '位置编码详解：从绝对位置到 RoPE',
+      '大模型（LLM）基础：预训练、微调与对齐流程梳理',
+      'LLM 推理优化笔记：KV Cache 与量化入门',
+      'LoRA 微调实践：参数高效微调原理与踩坑记录',
+      '提示词工程（Prompt Engineering）实用技巧整理',
+      'Chain-of-Thought 思维链提示的原理与实践',
+      'RAG 检索增强生成：从向量检索到完整链路搭建',
+      'Embedding 与向量数据库选型学习笔记',
+      'NLP 基础：分词、词向量与语言模型发展脉络',
+      'BERT 与 GPT 的区别：预训练目标对比分析',
+      '计算机视觉入门：图像分类到目标检测的演进',
+      'Vision Transformer（ViT）论文阅读笔记',
+      '扩散模型（Diffusion）原理入门与公式推导',
+      '强化学习基础：马尔可夫决策过程与 Q-Learning',
+      'RLHF 学习笔记：奖励模型与 PPO 训练流程',
+      'Python 机器学习实战：用 scikit-learn 完成第一个项目',
+      'PyTorch 实战：从 Tensor 到训练一个完整模型',
+      'AI 工具提效：用大模型辅助阅读论文与写代码',
+      '2026 AI 学习路线：数学基础、框架与项目规划',
+      '论文阅读方法：如何高效精读一篇顶会论文',
+      '算法打卡第 30 天：动态规划经典题型总结'
+    ])
+  });
 
   /** 兜底巡检间隔（毫秒）。 */
   const CHECK_INTERVAL_MS = 800;
@@ -62,15 +67,16 @@
   const MSG_SHUFFLE = 'FB_SHUFFLE';
   const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
-  /**
-   * 需要同步替换的页面标题元素选择器。
-   * 问题详情页 / 专栏文章页 / 想法页。
-   */
-  const HEADER_SELECTORS = [
-    'h1.QuestionHeader-title',
-    'h1.Post-Title',
-    '.PinHeader-title'
-  ].join(',');
+  /** 当前站点配置；sites.js 未载入或站点不在配置表中时不做任何事。 */
+  const site = typeof findSite === 'function' ? findSite(location.href) : null;
+  if (!site) return;
+
+  /** 当前站点使用的标题池。 */
+  const TITLE_POOL = TITLE_POOLS[site.poolKey] || [];
+  if (TITLE_POOL.length === 0) return;
+
+  /** 需要同步替换的页面标题元素选择器（来自站点配置）。 */
+  const HEADER_SELECTORS = site.titleSelectors.join(',');
 
   /** 运行时状态。 */
   const state = {

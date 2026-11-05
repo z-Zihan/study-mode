@@ -2,7 +2,8 @@
  * jsdom 功能测试：node --test test/run-test.mjs（或 npm test）
  *
  * 每个用例新建一个 jsdom 窗口载入 mock-zhihu.html，注入 chrome API stub 后
- * 执行 src/content.js，再验证标题替换、反写防御、SPA 导航、开关与消息。
+ * 依次执行 src/sites.js 与 src/content.js（与 manifest 注入顺序一致），再验证
+ * 标题替换、反写防御、SPA 导航、开关与消息，以及站点配置表的匹配与同步。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
 const ROOT = new URL('../', import.meta.url);
+const SITES_SRC = readFileSync(fileURLToPath(new URL('src/sites.js', ROOT)), 'utf8');
 const CONTENT_SRC = readFileSync(fileURLToPath(new URL('src/content.js', ROOT)), 'utf8');
+const MANIFEST = JSON.parse(readFileSync(fileURLToPath(new URL('manifest.json', ROOT)), 'utf8'));
 const MOCK_HTML = readFileSync(fileURLToPath(new URL('test/mock-zhihu.html', ROOT)), 'utf8');
 
 const PAGE_URL = 'https://www.zhihu.com/question/123';
@@ -26,12 +29,15 @@ const POLL_STEP_MS = 20;
 /** 模拟 storage.get 的异步延迟。 */
 const STORAGE_DELAY_MS = 5;
 
-/** 从源码中解析出 TITLE_POOL，保证测试与源码同步。 */
+/** 从源码中解析出知乎使用的 ai-study 标题池，保证测试与源码同步。 */
 const TITLE_POOL = (() => {
-  const match = CONTENT_SRC.match(/const TITLE_POOL = Object\.freeze\((\[[\s\S]*?\])\);/);
-  assert.ok(match, '无法在 content.js 中找到 TITLE_POOL');
+  const match = CONTENT_SRC.match(/'ai-study': Object\.freeze\((\[[\s\S]*?\])\)/);
+  assert.ok(match, '无法在 content.js 中找到 ai-study 标题池');
   return new Function(`return ${match[1]};`)();
 })();
+
+/** 在独立作用域中执行 sites.js，取出 SITES 与 findSite 供单元断言使用。 */
+const { SITES, findSite } = new Function(`${SITES_SRC}\nreturn { SITES, findSite };`)();
 
 /**
  * 构造最小 chrome API stub。
@@ -72,14 +78,16 @@ function createChromeStub(stored) {
 
 /**
  * 新建页面并执行内容脚本。
- * @param {{stored?: object, withChrome?: boolean}} [opts]
+ * 浏览器中同一扩展的多个内容脚本共享全局词法作用域；jsdom 的 window.eval
+ * 每次调用各自隔离 const，因此把 sites.js 与 content.js 拼接后一次执行。
+ * @param {{stored?: object, withChrome?: boolean, url?: string}} [opts]
  */
-function load({ stored = {}, withChrome = true } = {}) {
-  const dom = new JSDOM(MOCK_HTML, { url: PAGE_URL, runScripts: 'outside-only' });
+function load({ stored = {}, withChrome = true, url = PAGE_URL } = {}) {
+  const dom = new JSDOM(MOCK_HTML, { url, runScripts: 'outside-only' });
   const { window } = dom;
   const chrome = withChrome ? createChromeStub(stored) : undefined;
   if (chrome) window.chrome = chrome;
-  window.eval(CONTENT_SRC);
+  window.eval(`${SITES_SRC}\n${CONTENT_SRC}`);
   return { window, document: window.document, chrome };
 }
 
@@ -192,6 +200,22 @@ test('测试4c：同一导航内标题保持稳定（不闪烁）', withPage({},
   assert.equal(document.title, desired);
 }));
 
+test('测试4d：两次 pushState 导航选中的标题都来自标题池', withPage({}, async ({ window, document }) => {
+  await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
+
+  const picked = [];
+  for (const path of ['/question/1001', '/question/1002']) {
+    window.history.pushState({}, '', path);
+    await waitFor(
+      () => inPool(document.title) && headerTexts(document).every((t) => t === document.title),
+      CHECK_INTERVAL_MS
+    );
+    picked.push(document.title);
+  }
+  // 随机选取，两次可能相同也可能不同，只要求都在池内
+  picked.forEach((t) => assert.ok(inPool(t), `导航后标题不在池中：${t}`));
+}));
+
 test('测试5：enabled=false 时 title 与 h1 不被替换', withPage({ stored: { enabled: false } }, async ({ document }) => {
   await sleep(CHECK_INTERVAL_MS + POLL_STEP_MS * 5);
   assert.equal(document.title, ORIGINAL_TITLE);
@@ -232,4 +256,46 @@ test('测试7：FB_SHUFFLE 换一条，FB_GET_CURRENT 返回当前标题', withP
 test('测试8：无 chrome API 时安静降级，默认启用', withPage({ withChrome: false }, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   headerTexts(document).forEach((t) => assert.equal(t, document.title));
+}));
+
+test('测试9：站点配置表——findSite 按 URL 匹配知乎，其他站点返回 null', () => {
+  for (const url of [
+    'https://www.zhihu.com/question/123',
+    'https://zhuanlan.zhihu.com/p/1',
+    'https://zhihu.com/'
+  ]) {
+    const site = findSite(url);
+    assert.ok(site, `应匹配：${url}`);
+    assert.equal(site.key, 'zhihu');
+    assert.equal(site.name, '知乎');
+    assert.equal(site.poolKey, 'ai-study');
+  }
+  for (const url of [
+    'https://www.example.com/',
+    'https://notzhihu.com/',
+    'https://zhihu.com.evil.example/',
+    'http://www.zhihu.com/',
+    'chrome://extensions/',
+    'not a url'
+  ]) {
+    assert.equal(findSite(url), null, `不应匹配：${url}`);
+  }
+});
+
+test('测试10：manifest 的 matches 覆盖 sites.js 中所有站点的 match', () => {
+  const matches = new Set(MANIFEST.content_scripts.flatMap((cs) => cs.matches));
+  for (const [key, site] of Object.entries(SITES)) {
+    for (const pattern of site.match) {
+      assert.ok(matches.has(pattern), `站点 ${key} 的 ${pattern} 未同步到 manifest`);
+    }
+  }
+  const js = MANIFEST.content_scripts[0].js;
+  assert.ok(js.indexOf('src/sites.js') !== -1 && js.indexOf('src/sites.js') < js.indexOf('src/content.js'),
+    'sites.js 必须先于 content.js 注入');
+});
+
+test('测试11：不在配置表中的站点不做任何替换', withPage({ url: 'https://www.example.com/page' }, async ({ document }) => {
+  await sleep(CHECK_INTERVAL_MS + POLL_STEP_MS * 5);
+  assert.equal(document.title, ORIGINAL_TITLE);
+  headerTexts(document).forEach((t) => assert.equal(t, ORIGINAL_H1));
 }));
