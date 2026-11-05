@@ -1,6 +1,6 @@
 {
   "name": "study-mode",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "学习模式 Study Mode：把标签页标题与页面大标题替换为学习类标题的浏览器扩展（多站点）",
   "private": true,
   "scripts": {

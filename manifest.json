@@ -2,13 +2,15 @@
   "manifest_version": 3,
   "name": "学习模式 Study Mode",
   "description": "浏览网页时把标签页标题和页面大标题替换成学习类标题，支持知乎并持续添加新站点。Replace tab & page titles with study-style titles.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "action": {
     "default_popup": "src/popup.html",
     "default_title": "学习模式 Study Mode",
@@ -21,8 +23,13 @@
   "//content_scripts": "matches 必须是 src/sites.js 中所有站点 match 的并集；以后加站点要同步这里",
   "content_scripts": [
     {
-      "matches": ["https://*.zhihu.com/*"],
-      "js": ["src/sites.js", "src/content.js"],
+      "matches": [
+        "https://*.zhihu.com/*"
+      ],
+      "js": [
+        "src/sites.js",
+        "src/content.js"
+      ],
       "run_at": "document_start",
       "all_frames": false
     }
@@ -31,7 +38,9 @@
     "gecko": {
       "id": "study-mode@z-zihan.dev",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": [
+          "none"
+        ]
       }
     }
   }
