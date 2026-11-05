@@ -57,7 +57,7 @@ jobs:
         run: |
           mkdir -p dist
           zip -r "dist/${{ steps.meta.outputs.zip }}" . \
-            -x '.git/*' 'node_modules/*' 'test/*' 'scripts/*' '.github/*' 'dist/*'
+            -x '.git/*' 'node_modules/*' 'test/*' 'scripts/*' '.github/*' 'dist/*' 'packaging/*'
           unzip -l "dist/${{ steps.meta.outputs.zip }}"
 
       - name: Publish latest (main)
