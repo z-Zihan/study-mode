@@ -54,7 +54,7 @@
 **第 6 步：确认安装成功**
 
 1. 扩展管理页中出现一张名为 **学习模式 Study Mode** 的卡片，卡片右下角的开关是**打开**状态，就说明装好了。
-2. 浏览器右上角工具栏点 **拼图图标 🧩**，在列表里找到 **学习模式 Study Mode**，点旁边的 **图钉 📌**，把图标固定到工具栏上，方便以后开关。
+2. 没有别的了——本扩展**没有弹窗、没有工具栏图标**，装上即自动生效。
 
 > 💡 Chrome 可能在卡片上显示「错误」或「未知字段」之类的黄色提示，这是正常现象，不影响使用（见下方常见问题）。
 
@@ -76,14 +76,7 @@ Firefox 只能「临时载入」，**关闭浏览器后会自动失效**，下�
   - 如果装扩展前已经开着知乎页面，**刷新一下**那个页面即可。
 - **想换一条标题？打开一个新页面就行。** 每打开一个新的知乎页面，都会随机换一条新标题。
 - **同一个页面里标题保持不变**，不会闪烁，也不会自己轮换。
-- **想暂时关闭：**
-  1. 点击工具栏上的 **学习模式** 图标（如果没看到，先点 **拼图图标 🧩**）。
-  2. 在弹出的小窗口里，把 **启用标题替换** 开关关掉。页面会尽量还原成原来的标题。
-  3. 下次想用，再把开关打开即可。开关状态会被记住，重启浏览器后依然有效。
-- **弹窗里还能看到：**
-  - 右上角：当前站点名（例如「知乎」；在不支持的网站上显示「当前页面不支持」）
-  - **当前标签页标题**：现在显示的是哪一条学习标题
-  - **标题池**：一共有多少条标题可供随机
+- **想暂时关闭？** 本扩展没有开关 UI。最简单的方式：在 `chrome://extensions` 的扩展卡片上暂时停用，用的时候再启用。刷新页面即恢复原标题。
 
 ### 升级版本
 
@@ -97,10 +90,10 @@ Firefox 只能「临时载入」，**关闭浏览器后会自动失效**，下�
 
 **Q：装了之后标题没变？**
 A：按顺序检查：
-1. 点工具栏的扩展图标，确认 **启用标题替换** 开关是打开的；
-2. 确认当前打开的是知乎页面（网址里有 `zhihu.com`）；
-3. 装好扩展后**刷新一次**知乎页面；
-4. 还不行的话，打开 `chrome://extensions`，在扩展卡片上点 **刷新图标 ↻**（重新加载），再刷新知乎页面。
+1. 确认当前打开的是知乎页面（网址里有 `zhihu.com`）；
+2. 装好扩展后**刷新一次**知乎页面；
+3. 打开 `chrome://extensions`，确认扩展卡片是**启用**状态；
+4. 还不行的话，在扩展卡片上点 **刷新图标 ↻**（重新加载），再刷新知乎页面。
 
 **Q：在知乎里点到另一个页面，标题没变？**
 A：知乎有些页面切换不会整页刷新，扩展最迟约 1 秒内就会换上新标题，稍等一下即可；如果仍没变，刷新页面。
@@ -134,8 +127,8 @@ A：Firefox 可以临时载入使用（见上方「Firefox 用户」，关闭浏
   - `.PinHeader-title`（想法页，若存在）
 - 每次新页面加载、SPA 切页（路径变化）从标题池重新随机；同页内保持稳定，站点改写标题时只会被纠正回同一条
 - 适配 SPA：history 钩子 + `MutationObserver` + 800ms 定时兜底
-- 关闭开关时尽量还原站点原始标题
-- **不修改任何网络请求**，不读取、不上传任何数据；不改动正文、回答、评论；不在未配置的站点上运行；没有后台脚本，只申请 `storage` 权限用于记住开关
+- **无 UI、装上即生效**：没有弹窗、没有工具栏图标，不需要任何操作
+- **不修改任何网络请求**，不读取、不上传任何数据；不改动正文、回答、评论；不在未配置的站点上运行；没有后台脚本、没有额外权限（已移除 `storage`）
 
 ### 从源码安装
 
@@ -154,7 +147,7 @@ git clone https://github.com/z-Zihan/study-mode.git
 ```js
 const SITES = Object.freeze({
   zhihu: Object.freeze({
-    name: '知乎',                                       // 弹窗中显示的站点名
+    name: '知乎',                                       // 站点名（备用）
     match: Object.freeze(['https://*.zhihu.com/*']),    // match pattern
     titleSelectors: Object.freeze(['h1.QuestionHeader-title', 'h1.Post-Title', '.PinHeader-title']),
     poolKey: 'ai-study'                                 // 使用哪个标题池
@@ -178,7 +171,7 @@ const TITLE_POOLS = Object.freeze({
 });
 ```
 
-> 测试中有一条用例校验 `ai-study` 标题池为 30 条，修改条数后请同步调整 `test/run-test.mjs`。
+> 测试中有一条用例校验 `ai-study` 标题池为 43 条，修改条数后请同步调整 `test/run-test.mjs`。
 
 ### 开发测试
 
@@ -188,7 +181,7 @@ npm test             # 语法检查 + jsdom 功能测试
 npm run icons        # 用 Pillow 重新生成 icons/（需 python3 + Pillow）
 ```
 
-也可以单独运行测试：`node --test test/run-test.mjs`。测试会在 jsdom 中载入 `test/mock-zhihu.html`（仿知乎问题页结构），注入 chrome API stub 后按 manifest 顺序执行 `sites.js` + `content.js`，覆盖：初次替换、h1 同步、站点反写纠正、`<title>` 整体替换、pushState 导航（含多次导航随机选取）、同页稳定、开关关闭/实时切换、弹窗消息、无扩展 API 时的降级、站点匹配、manifest 同步、未支持站点不动作。
+也可以单独运行测试：`node --test test/run-test.mjs`。测试会在 jsdom 中载入 `test/mock-zhihu.html`（仿知乎问题页结构），注入 chrome API stub 后按 manifest 顺序执行 `sites.js` + `content.js`，覆盖：初次替换、h1 同步、站点反写纠正、`<title>` 整体替换、pushState 导航（含多次导航随机选取）、同页稳定、开关关闭/实时切换、无扩展 API 时的降级、站点匹配、manifest 同步、未支持站点不动作。
 
 ### 发布
 
@@ -201,9 +194,8 @@ npm run icons        # 用 Pillow 重新生成 icons/（需 python3 + Pillow）
 
 ```
 manifest.json          MV3 清单（含 Firefox 兼容字段）
-src/sites.js           站点配置表 + URL 匹配（content 与 popup 共用）
-src/content.js         内容脚本通用引擎：标题池、替换、SPA 适配、开关与消息
-src/popup.html/js/css  弹窗
+src/sites.js           站点配置表 + URL 匹配（content 载入）
+src/content.js         内容脚本通用引擎：标题池、替换、SPA 适配、可选开关
 icons/                 16 / 48 / 128 图标
 scripts/gen-icons.py   图标生成脚本
 test/                  仿知乎测试页与 jsdom 测试
@@ -224,10 +216,10 @@ test/                  仿知乎测试页与 jsdom 测试
 
 **Study Mode** is a cross-browser MV3 extension that replaces the tab title and the on-page headline with study-style titles (e.g. "Machine learning fundamentals"). Sites are configured in `src/sites.js`; **currently supported: Zhihu**.
 
-- Pure DOM display-layer replacement — no network requests are touched, no data collected.
+- Pure DOM display-layer replacement — no network requests are touched, no data collected, no extra permissions.
 - A random title is picked for every new page / SPA navigation and stays stable on that page (no timed rotation). Fully automatic — no manual interaction needed.
 - Handles SPAs via history hooks, `MutationObserver`, and an 800 ms fallback check.
-- Popup: current site name ("not supported" elsewhere), on/off toggle (persisted), current title display.
+- No UI at all: no popup, no toolbar icon — works automatically once installed. Toggle removed in v1.3.0; disable via the extensions page if needed.
 - Install (zip): open the [latest release](https://github.com/z-Zihan/study-mode/releases/tag/latest) → download `study-mode-v*.zip` from Assets → unzip → `chrome://extensions` → Developer mode → Load unpacked ("Load unpacked" in older versions) → select the unzipped folder (the one containing `manifest.json`).
 - Install (dev): `git clone` → Load unpacked → select the repo root. Firefox → `about:debugging` → Load Temporary Add-on → pick `manifest.json`.
 - Add a site: add an entry to `SITES` in `src/sites.js` **and** its match pattern to `manifest.json`. Customize titles via `TITLE_POOLS` in `src/content.js`. Run tests with `npm install && npm test`.

@@ -10,6 +10,8 @@
  * - 零依赖、IIFE + 严格模式；chrome.* 不存在时安静降级（便于 jsdom 测试）。
  * - 每次导航（以 origin + pathname 区分）随机选一条，同一导航内保持稳定。
  * - 站点 SPA 会把标题写回：用 history 钩子 + MutationObserver + 定时兜底三层防御。
+ * - 无任何 UI：装上即默认生效；storage 开关读取保留为可选通道（默认启用），
+ *   供用户在扩展详情页用脚本临时关闭。
  */
 (function () {
   'use strict';
@@ -49,7 +51,20 @@
       'PyTorch 实战：从 Tensor 到训练一个完整模型',
       'AI 工具提效：用大模型辅助阅读论文与写代码',
       '2026 AI 学习路线：数学基础、框架与项目规划',
-      '论文阅读方法：如何高效精读一篇顶会论文',
+      'AI 是什么？一分钟搞懂人工智能、机器学习和深度学习的关系',
+      'ChatGPT 背后的原理：大语言模型是怎么学会说话的',
+      '神经网络是什么？用搭积木的方式理解深度学习',
+      '一文看懂 AI 画图：从像素到扩散模型的通俗解释',
+      '大模型为什么聪明？预训练就是读完整个互联网',
+      'AI 会不会取代程序员？聊聊大模型的真实能力边界',
+      '普通人如何入门 AI：从这些免费课程和工具开始',
+      'AI 日常用法 10 例：写作、翻译、做表、学外语',
+      '提示词怎么写才好用：跟 AI 沟通的 5 个技巧',
+      'AI 幻觉是什么？大模型一本正经胡说八道的原因',
+      '什么是智能体（Agent）？让 AI 自己动手干活的原理',
+      '深度学习框架怎么选：PyTorch 和 TensorFlow 对比',
+      'AI 常用名词词典：Token、上下文、温度参数都是啥',
+      '看懂 AI 新闻必备：预训练、微调、推理到底指什么',
       '算法打卡第 30 天：动态规划经典题型总结'
     ])
   });
@@ -57,7 +72,7 @@
   /** 兜底巡检间隔（毫秒）。 */
   const CHECK_INTERVAL_MS = 800;
 
-  /** storage.local 中开关状态的键名。 */
+  /** storage.local 中可选开关的键名（无 UI，默认启用；仅供高级用户脚本临时关闭）。 */
   const STORAGE_KEY_ENABLED = 'enabled';
 
   /** 开关默认值：未设置时启用。 */
@@ -83,9 +98,6 @@
 
   /** 自身注入节点的标记属性，原文匹配时跳过其子树。 */
   const IGNORE_ATTR = 'data-fb-ignore';
-
-  /** 与 popup 通信的消息类型（FB = FakeBrowse，避免与其他扩展撞名）。 */
-  const MSG_GET_CURRENT = 'FB_GET_CURRENT';
 
   /** 当前站点配置；sites.js 未载入或站点不在配置表中时不做任何事。 */
   const site = typeof findSite === 'function' ? findSite(location.href) : null;
@@ -477,25 +489,6 @@
     });
   }
 
-  /**
-   * 监听 popup 消息：查询当前标题。同步 sendResponse。
-   */
-  function listenMessages() {
-    const runtime = chromeApi('runtime');
-    if (!runtime || !runtime.onMessage || typeof runtime.onMessage.addListener !== 'function') return;
-    runtime.onMessage.addListener(function (message, _sender, sendResponse) {
-      if (!message || typeof message.type !== 'string') return false;
-      if (message.type !== MSG_GET_CURRENT) return false;
-      sendResponse({
-        ok: true,
-        title: desiredTitle(),
-        enabled: state.enabled,
-        poolSize: TITLE_POOL.length
-      });
-      return false;
-    });
-  }
-
   // ---------------------------------------------------------------------------
   // 初始化
   // ---------------------------------------------------------------------------
@@ -511,7 +504,6 @@
     hookHistory();
     observe();
     listenStorage();
-    listenMessages();
     setInterval(tick, CHECK_INTERVAL_MS);
 
     readEnabled(function (enabled) {

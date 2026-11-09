@@ -66,12 +66,6 @@ function createChromeStub(stored) {
     },
     runtime: {
       onMessage: { addListener: (fn) => messageListeners.push(fn) }
-    },
-    /** 测试辅助：模拟 popup 发消息，返回同步 sendResponse 的内容。 */
-    _send(message) {
-      let response;
-      messageListeners.forEach((fn) => fn(message, {}, (r) => { response = r; }));
-      return response;
     }
   };
 }
@@ -122,26 +116,26 @@ function withPage(opts, fn) {
   };
 }
 
-test('标题池共 30 条且不含敏感字眼', () => {
-  assert.equal(TITLE_POOL.length, 30);
+test('标题池共 43 条且不含敏感字眼', () => {
+  assert.equal(TITLE_POOL.length, 43);
   for (const t of TITLE_POOL) {
     assert.ok(!/知乎|伪装/.test(t), `标题含敏感字眼：${t}`);
   }
 });
 
-test('测试1：载入后 document.title 变为标题池中的一条', withPage({}, async ({ document }) => {
+test('测试0：载入后 document.title 变为标题池中的一条', withPage({}, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   assert.ok(inPool(document.title));
 }));
 
-test('测试2：h1 文本同步为同一条', withPage({}, async ({ document }) => {
+test('测试1：h1 文本同步为同一条', withPage({}, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   const texts = headerTexts(document);
   assert.equal(texts.length, 2);
   texts.forEach((t) => assert.equal(t, document.title));
 }));
 
-test('测试3：站点把 title / h1 改回原文，800ms 内被纠正', withPage({}, async ({ document }) => {
+test('测试2：站点把 title / h1 改回原文，800ms 内被纠正', withPage({}, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   const desired = document.title;
 
@@ -169,7 +163,7 @@ test('测试3b：<title> 元素被整体替换后仍被纠正', withPage({}, asy
   await waitFor(() => document.title === desired, CHECK_INTERVAL_MS);
 }));
 
-test('测试4：pushState 导航后换成另一条池内标题', withPage({}, async ({ window, document }) => {
+test('测试3：pushState 导航后换成另一条池内标题', withPage({}, async ({ window, document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   const before = document.title;
 
@@ -216,13 +210,13 @@ test('测试4d：两次 pushState 导航选中的标题都来自标题池', with
   picked.forEach((t) => assert.ok(inPool(t), `导航后标题不在池中：${t}`));
 }));
 
-test('测试5：enabled=false 时 title 与 h1 不被替换', withPage({ stored: { enabled: false } }, async ({ document }) => {
+test('测试4：enabled=false 时 title 与 h1 不被替换', withPage({ stored: { enabled: false } }, async ({ document }) => {
   await sleep(CHECK_INTERVAL_MS + POLL_STEP_MS * 5);
   assert.equal(document.title, ORIGINAL_TITLE);
   headerTexts(document).forEach((t) => assert.equal(t, ORIGINAL_H1));
 }));
 
-test('测试6：storage.onChanged 实时开关，关闭时还原原文', withPage({}, async ({ document, chrome }) => {
+test('测试5：storage.onChanged 实时开关，关闭时还原原文', withPage({}, async ({ document, chrome }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
 
   chrome.storage.local.set({ enabled: false });
@@ -235,24 +229,13 @@ test('测试6：storage.onChanged 实时开关，关闭时还原原文', withPag
   assert.ok(inPool(document.title));
 }));
 
-test('测试7：FB_GET_CURRENT 返回当前标题', withPage({}, async ({ document, chrome }) => {
-  await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
-  const before = document.title;
 
-  const current = chrome._send({ type: 'FB_GET_CURRENT' });
-  // 回包对象来自 jsdom 窗口的 realm，展开到本 realm 再比较结构
-  assert.deepEqual({ ...current }, { ok: true, title: before, enabled: true, poolSize: TITLE_POOL.length });
-
-  // 未知消息不回包
-  assert.equal(chrome._send({ type: 'OTHER' }), undefined);
-}));
-
-test('测试8：无 chrome API 时安静降级，默认启用', withPage({ withChrome: false }, async ({ document }) => {
+test('测试6：无 chrome API 时安静降级，默认启用', withPage({ withChrome: false }, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   headerTexts(document).forEach((t) => assert.equal(t, document.title));
 }));
 
-test('测试9：站点配置表——findSite 按 URL 匹配知乎，其他站点返回 null', () => {
+test('测试8：站点配置表——findSite 按 URL 匹配知乎，其他站点返回 null', () => {
   for (const url of [
     'https://www.zhihu.com/question/123',
     'https://zhuanlan.zhihu.com/p/1',
@@ -276,7 +259,7 @@ test('测试9：站点配置表——findSite 按 URL 匹配知乎，其他站�
   }
 });
 
-test('测试10：manifest 的 matches 覆盖 sites.js 中所有站点的 match', () => {
+test('测试9：manifest 的 matches 覆盖 sites.js 中所有站点的 match', () => {
   const matches = new Set(MANIFEST.content_scripts.flatMap((cs) => cs.matches));
   for (const [key, site] of Object.entries(SITES)) {
     for (const pattern of site.match) {
@@ -288,13 +271,13 @@ test('测试10：manifest 的 matches 覆盖 sites.js 中所有站点的 match',
     'sites.js 必须先于 content.js 注入');
 });
 
-test('测试11：不在配置表中的站点不做任何替换', withPage({ url: 'https://www.example.com/page' }, async ({ document }) => {
+test('测试10：不在配置表中的站点不做任何替换', withPage({ url: 'https://www.example.com/page' }, async ({ document }) => {
   await sleep(CHECK_INTERVAL_MS + POLL_STEP_MS * 5);
   assert.equal(document.title, ORIGINAL_TITLE);
   headerTexts(document).forEach((t) => assert.equal(t, ORIGINAL_H1));
 }));
 
-test('测试12：吸顶 header 克隆（类名不在 titleSelectors 中）按原文匹配被替换', withPage({}, async ({ document }) => {
+test('测试11：吸顶 header 克隆（类名不在 titleSelectors 中）按原文匹配被替换', withPage({}, async ({ document }) => {
   await waitFor(() => inPool(document.title), CHECK_INTERVAL_MS);
   const desired = document.title;
 
